@@ -391,6 +391,33 @@
             <canvas id="temperatureChart"></canvas>
         </div>
 
+        <!-- TABLEAU HISTORIQUE TEMPERATURE -->
+<div class="mt-4">
+    <h6 class="fw-bold mb-3">Détails des mesures de température</h6>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Date et heure</th>
+                    <th>Température (°C)</th>
+                </tr>
+            </thead>
+
+            <tbody id="temperatureHistoryBody">
+                <tr>
+                    <td colspan="2" class="text-center text-secondary">
+                        Aucune donnée
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="temperaturePagination"
+             class="d-flex justify-content-center align-items-center gap-3 mt-3">
+        </div>
+    </div>
+</div>
+
     </section>
 
 
@@ -422,6 +449,33 @@
             <canvas id="humidityChart"></canvas>
         </div>
 
+        <!-- TABLEAU HISTORIQUE HUMIDITE -->
+<div class="mt-4">
+    <h6 class="fw-bold mb-3">Détails des mesures d'humidité</h6>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Date et heure</th>
+                    <th>Humidité (%)</th>
+                </tr>
+            </thead>
+
+            <tbody id="humidityHistoryBody">
+                <tr>
+                    <td colspan="2" class="text-center text-secondary">
+                        Aucune donnée
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="humidityPagination"
+             class="d-flex justify-content-center align-items-center gap-3 mt-3">
+        </div>
+    </div>
+</div>
+
     </section>
 
 
@@ -452,6 +506,11 @@ const API_URL = "/api/get";
 const REFRESH_INTERVAL = 5000;
 
 let measurements = [];
+
+const ITEMS_PER_PAGE = 10;
+
+let temperatureCurrentPage = 1;
+let humidityCurrentPage = 1;
 
 let temperatureChart = null;
 let humidityChart = null;
@@ -731,22 +790,154 @@ function updateTemperatureChart() {
     temperatureChart.update('none');
 }
 
+function renderPagination(containerId, currentPage, totalPages, onPageChange) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+
+    const previousButton = document.createElement('button');
+    previousButton.textContent = 'Précédent';
+    previousButton.className = 'btn btn-sm btn-outline-primary';
+    previousButton.disabled = currentPage === 1;
+    previousButton.onclick = () => onPageChange(currentPage - 1);
+
+    const pageInfo = document.createElement('span');
+    pageInfo.textContent = `Page ${currentPage} / ${totalPages}`;
+
+    const nextButton = document.createElement('button');
+    nextButton.textContent = 'Suivant';
+    nextButton.className = 'btn btn-sm btn-outline-primary';
+    nextButton.disabled = currentPage === totalPages;
+    nextButton.onclick = () => onPageChange(currentPage + 1);
+
+    container.appendChild(previousButton);
+    container.appendChild(pageInfo);
+    container.appendChild(nextButton);
+}
+
 
 // ======================================================
 // 11. METTRE A JOUR LE GRAPHIQUE HUMIDITE
 // ======================================================
 
+// ======================================================
+// HISTORIQUE TEMPERATURE SOUS FORME DE TABLEAU
+// ======================================================
+
+function updateTemperatureTable() {
+    const tbody = document.getElementById('temperatureHistoryBody');
+
+    const history = [...measurements].reverse();
+    const totalPages = Math.max(1, Math.ceil(history.length / ITEMS_PER_PAGE));
+
+    temperatureCurrentPage = Math.min(temperatureCurrentPage, totalPages);
+
+    const start = (temperatureCurrentPage - 1) * ITEMS_PER_PAGE;
+    const pageData = history.slice(start, start + ITEMS_PER_PAGE);
+
+    tbody.innerHTML = '';
+
+    if (pageData.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="2" class="text-center text-secondary">
+                    Aucune mesure disponible
+                </td>
+            </tr>
+        `;
+    }
+
+    pageData.forEach(item => {
+        const row = document.createElement('tr');
+        const date = new Date(item.date);
+
+        row.innerHTML = `
+            <td>${date.toLocaleString('fr-FR')}</td>
+            <td class="fw-semibold text-primary">
+                ${item.temperature.toFixed(1)} °C
+            </td>
+        `;
+
+        tbody.appendChild(row);
+    });
+
+    renderPagination(
+        'temperaturePagination',
+        temperatureCurrentPage,
+        totalPages,
+        page => {
+            temperatureCurrentPage = page;
+            updateTemperatureTable();
+        }
+    );
+}
+
+
+// ======================================================
+// HISTORIQUE HUMIDITE SOUS FORME DE TABLEAU
+// ======================================================
+
+function updateHumidityTable() {
+    const tbody = document.getElementById('humidityHistoryBody');
+
+    const history = [...measurements].reverse();
+    const totalPages = Math.max(1, Math.ceil(history.length / ITEMS_PER_PAGE));
+
+    humidityCurrentPage = Math.min(humidityCurrentPage, totalPages);
+
+    const start = (humidityCurrentPage - 1) * ITEMS_PER_PAGE;
+    const pageData = history.slice(start, start + ITEMS_PER_PAGE);
+
+    tbody.innerHTML = '';
+
+    if (pageData.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="2" class="text-center text-secondary">
+                    Aucune mesure disponible
+                </td>
+            </tr>
+        `;
+    }
+
+    pageData.forEach(item => {
+        const row = document.createElement('tr');
+        const date = new Date(item.date);
+
+        row.innerHTML = `
+            <td>${date.toLocaleString('fr-FR')}</td>
+            <td class="fw-semibold" style="color: #0891b2">
+                ${item.humidity.toFixed(1)} %
+            </td>
+        `;
+
+        tbody.appendChild(row);
+    });
+
+    renderPagination(
+        'humidityPagination',
+        humidityCurrentPage,
+        totalPages,
+        page => {
+            humidityCurrentPage = page;
+            updateHumidityTable();
+        }
+    );
+}
+
+
+// ======================================================
+// DIAGRAMME HUMIDITE
+// ======================================================
+
 function updateHumidityChart() {
 
     const labels = measurements.map(item => {
-
         const date = new Date(item.date);
 
         return date.toLocaleTimeString('fr-FR', {
             hour: '2-digit',
             minute: '2-digit'
         });
-
     });
 
     const values = measurements.map(item =>
@@ -754,7 +945,6 @@ function updateHumidityChart() {
     );
 
     humidityChart.data.labels = labels;
-
     humidityChart.data.datasets[0].data = values;
 
     humidityChart.update('none');
@@ -820,9 +1010,13 @@ async function fetchMeasurements() {
             updateTemperatureCard(latest);
             updateHumidityCard(latest);
 
-            // Actualiser indépendamment les graphiques
+            // Actualiser les graphiques
             updateTemperatureChart();
             updateHumidityChart();
+
+            // Actualiser les tableaux historiques
+            updateTemperatureTable();
+            updateHumidityTable();
 
             // Actualiser l'âge
             updateAges();
