@@ -1,59 +1,88 @@
+
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
 #include <DHT.h>
 #include "secrets.h"
- 
+
+// Configuration du capteur
 #define DHTPIN D2
 #define DHTTYPE DHT11
+
 DHT dht(DHTPIN, DHTTYPE);
 
-WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-http.begin(client, SERVER_URL);
- 
 void setup() {
+  // Initialisation du moniteur série
   Serial.begin(115200);
+
+  // Initialisation du capteur DHT11
   dht.begin();
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  // Connexion au Wi-Fi
   Serial.print("Connexion Wi-Fi");
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\nWi-Fi connecte");
+
+  Serial.println("\nWi-Fi connecte !");
+  Serial.print("Adresse IP ESP8266 : ");
   Serial.println(WiFi.localIP());
 }
- 
+
 void loop() {
+  // Lecture des données du capteur
   float temperature = dht.readTemperature();
   float humidity = dht.readHumidity();
- 
+
+  // Vérification des lectures
   if (isnan(temperature) || isnan(humidity)) {
     Serial.println("Erreur lecture DHT11");
     delay(5000);
     return;
   }
- 
+
+  // Création du JSON
   String json = "{\"temperature\":" + String(temperature, 1)
               + ",\"humidity\":" + String(humidity, 1) + "}";
+
   Serial.println("JSON envoye : " + json);
- 
+
+  // Vérification de la connexion Wi-Fi
   if (WiFi.status() == WL_CONNECTED) {
+
     WiFiClient client;
     HTTPClient http;
+
+    // Initialisation de la requête HTTP
     http.begin(client, SERVER_URL);
     http.addHeader("Content-Type", "application/json");
+    http.addHeader("Accept", "application/json");
+
+    // Envoi des données vers Django
     int httpCode = http.POST(json);
+
     Serial.print("Code HTTP : ");
     Serial.println(httpCode);
+
     if (httpCode > 0) {
-      Serial.println("Reponse : " + http.getString());
+      Serial.println("Reponse serveur : ");
+      Serial.println(http.getString());
     } else {
-      Serial.println("Erreur connexion : " + http.errorToString(httpCode));
+      Serial.print("Erreur connexion : ");
+      Serial.println(http.errorToString(httpCode));
     }
+
+    // Fermeture de la connexion HTTP
     http.end();
+
   } else {
     Serial.println("Wi-Fi deconnecte");
   }
-  delay(10000); // Une mesure toutes les 10 secondes
+
+  // Une mesure toutes les 10 secondes
+  delay(10000);
 }

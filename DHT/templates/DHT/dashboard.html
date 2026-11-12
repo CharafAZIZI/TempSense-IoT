@@ -5,199 +5,865 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta http-equiv="refresh" content="10">
+    <title>TempSense IoT | Dashboard</title>
 
-    <title>IoT Monitor | Dashboard</title>
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet">
 
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS : préfixe tw- pour éviter les conflits Bootstrap -->
+    <script>
+        tailwind = {
+            config: {
+                prefix: 'tw-',
+                corePlugins: {
+                    preflight: false
+                }
+            }
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#2563EB',
-                        darkblue: '#172554'
+    <!-- Icons -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-light: #eff6ff;
+            --cyan: #0891b2;
+            --background: #f5f7fb;
+            --text: #172554;
+            --muted: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--background);
+            color: var(--text);
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar-custom {
+            background: white;
+            border-bottom: 1px solid #e8edf5;
+            padding: 17px 0;
+        }
+
+        .brand-icon {
+            width: 43px;
+            height: 43px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary-light);
+            color: var(--primary);
+            border-radius: 13px;
+            font-size: 23px;
+        }
+
+        .dashboard-card {
+            background: white;
+            border: 1px solid #e8edf5;
+            border-radius: 18px;
+            padding: 25px;
+            cursor: pointer;
+            transition: all .25s ease;
+            height: 100%;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(37, 99, 235, .09);
+            border-color: #bfdbfe;
+        }
+
+        .metric-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            font-size: 23px;
+        }
+
+        .temperature-icon {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .humidity-icon {
+            background: #ecfeff;
+            color: #0891b2;
+        }
+
+        .metric-value {
+            font-size: clamp(32px, 4vw, 42px);
+            font-weight: 700;
+            letter-spacing: -1.5px;
+            margin: 20px 0 5px;
+        }
+
+        .metric-label {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .age-label {
+            color: #64748b;
+            font-size: 13px;
+            margin-top: 17px;
+        }
+
+        .chart-panel {
+            display: none;
+            background: white;
+            border: 1px solid #e8edf5;
+            border-radius: 18px;
+            padding: 25px;
+            margin-top: 22px;
+            animation: appear .3s ease;
+        }
+
+        .chart-panel.active {
+            display: block;
+        }
+
+        @keyframes appear {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .status-dot {
+            display: inline-block;
+            height: 9px;
+            width: 9px;
+            border-radius: 50%;
+            margin-right: 7px;
+            background: #16a34a;
+        }
+
+        .status-offline {
+            background: #ef4444;
+        }
+
+        .status-warning {
+            background: #f59e0b;
+        }
+
+        .refresh-btn {
+            border: 1px solid #e2e8f0;
+            background: white;
+            padding: 9px 15px;
+            border-radius: 10px;
+            color: #334155;
+            transition: .2s;
+        }
+
+        .refresh-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .empty-state {
+            color: var(--muted);
+            text-align: center;
+            padding: 35px 10px;
+        }
+
+        footer {
+            color: #94a3b8;
+            font-size: 13px;
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        @media (max-width: 576px) {
+            .dashboard-card {
+                padding: 20px;
+            }
+
+            .chart-panel {
+                padding: 15px;
+            }
+
+            .chart-container {
+                height: 240px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar-custom">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+
+            <div class="d-flex align-items-center gap-3">
+                <div class="brand-icon">
+                    <i class="bi bi-thermometer-half"></i>
+                </div>
+
+                <div>
+                    <h5 class="mb-0 fw-bold">TempSense <span class="text-primary">IoT</span></h5>
+                    <small class="text-secondary">Environmental Monitoring</small>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-3">
+                <div class="small text-secondary d-none d-sm-block">
+                    <span id="statusDot" class="status-dot status-offline"></span>
+                    <span id="connectionStatus">Connexion...</span>
+                </div>
+
+                <button class="refresh-btn" onclick="fetchMeasurements()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    <span class="d-none d-sm-inline">Actualiser</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+</nav>
+
+
+<!-- MAIN CONTENT -->
+<main class="container py-5">
+
+    <!-- PAGE TITLE -->
+    <div class="mb-4">
+        <h2 class="fw-bold mb-2">Tableau de bord</h2>
+
+        <p class="text-secondary mb-0">
+            Surveillez les données de votre capteur DHT11 en temps réel.
+        </p>
+    </div>
+
+
+    <!-- MEASUREMENT CARDS -->
+    <div class="row g-4">
+
+        <!-- TEMPERATURE CARD -->
+        <div class="col-12 col-md-6">
+
+            <div class="dashboard-card"
+                 role="button"
+                 tabindex="0"
+                 aria-label="Afficher le graphique de température"
+                 aria-controls="temperaturePanel"
+                 onclick="toggleChart('temperature')"
+                 onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleChart('temperature'); }">
+
+                <div class="d-flex justify-content-between align-items-center">
+
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="metric-icon temperature-icon">
+                            <i class="bi bi-thermometer-half"></i>
+                        </div>
+
+                        <div>
+                            <h5 class="fw-bold mb-1">Température</h5>
+                            <span class="metric-label">Température ambiante</span>
+                        </div>
+                    </div>
+
+                    <i class="bi bi-three-dots text-secondary fs-4"></i>
+                </div>
+
+                <div class="metric-value text-primary" id="temperatureValue">
+                    -- °C
+                </div>
+
+                <div class="age-label">
+                    <i class="bi bi-clock me-1"></i>
+                    Dernière mesure :
+                    <strong id="temperatureAge">En attente...</strong>
+                </div>
+
+                <div class="mt-3 text-primary small fw-semibold">
+                    <i class="bi bi-graph-up me-1"></i>
+                    Voir le graphique
+                    <i class="bi bi-arrow-right ms-1"></i>
+                </div>
+
+            </div>
+        </div>
+
+
+        <!-- HUMIDITY CARD -->
+        <div class="col-12 col-md-6">
+
+            <div class="dashboard-card"
+                 role="button"
+                 tabindex="0"
+                 aria-label="Afficher le graphique d'humidité"
+                 aria-controls="humidityPanel"
+                 onclick="toggleChart('humidity')"
+                 onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleChart('humidity'); }">
+
+                <div class="d-flex justify-content-between align-items-center">
+
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="metric-icon humidity-icon">
+                            <i class="bi bi-droplets"></i>
+                        </div>
+
+                        <div>
+                            <h5 class="fw-bold mb-1">Humidité</h5>
+                            <span class="metric-label">Humidité de l'air</span>
+                        </div>
+                    </div>
+
+                    <i class="bi bi-three-dots text-secondary fs-4"></i>
+                </div>
+
+                <div class="metric-value" style="color: #0891b2"
+                     id="humidityValue">
+                    -- %
+                </div>
+
+                <div class="age-label">
+                    <i class="bi bi-clock me-1"></i>
+                    Dernière mesure :
+                    <strong id="humidityAge">En attente...</strong>
+                </div>
+
+                <div class="mt-3 small fw-semibold" style="color: #0891b2">
+                    <i class="bi bi-graph-up me-1"></i>
+                    Voir le graphique
+                    <i class="bi bi-arrow-right ms-1"></i>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- TEMPERATURE CHART -->
+    <section class="chart-panel" id="temperaturePanel">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+
+            <div>
+                <h5 class="fw-bold mb-1">
+                    <i class="bi bi-thermometer-half text-primary me-2"></i>
+                    Historique de température
+                </h5>
+
+                <small class="text-secondary">
+                    Évolution des dernières mesures
+                </small>
+            </div>
+
+            <button class="refresh-btn"
+                    onclick="toggleChart('temperature')">
+                <i class="bi bi-x-lg"></i>
+                Fermer
+            </button>
+
+        </div>
+
+        <div class="chart-container">
+            <canvas id="temperatureChart"></canvas>
+        </div>
+
+    </section>
+
+
+    <!-- HUMIDITY CHART -->
+    <section class="chart-panel" id="humidityPanel">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+
+            <div>
+                <h5 class="fw-bold mb-1">
+                    <i class="bi bi-droplets me-2" style="color:#0891b2"></i>
+                    Historique d'humidité
+                </h5>
+
+                <small class="text-secondary">
+                    Évolution des dernières mesures
+                </small>
+            </div>
+
+            <button class="refresh-btn"
+                    onclick="toggleChart('humidity')">
+                <i class="bi bi-x-lg"></i>
+                Fermer
+            </button>
+
+        </div>
+
+        <div class="chart-container">
+            <canvas id="humidityChart"></canvas>
+        </div>
+
+    </section>
+
+
+    <!-- LAST UPDATE -->
+    <div class="text-center mt-4 text-secondary small">
+        <i class="bi bi-arrow-repeat me-1"></i>
+        Dernière actualisation :
+        <span id="lastUpdate">En attente...</span>
+    </div>
+
+</main>
+
+
+<footer>
+    <div class="container">
+        TempSense IoT © 2026 — ESP8266 + DHT11 + Django
+    </div>
+</footer>
+
+
+<script>
+
+// ======================================================
+// 1. CONFIGURATION
+// ======================================================
+
+const API_URL = "/api/get";
+const REFRESH_INTERVAL = 5000;
+
+let measurements = [];
+
+let temperatureChart = null;
+let humidityChart = null;
+
+
+// ======================================================
+// 2. CONFIGURATION COMMUNE DES GRAPHIQUES
+// ======================================================
+
+function createChart(canvasId, label, color, unit) {
+
+    const context = document.getElementById(canvasId);
+
+    return new Chart(context, {
+
+        type: 'line',
+
+        data: {
+            labels: [],
+
+            datasets: [{
+                label: label,
+                data: [],
+
+                borderColor: color,
+                backgroundColor: color + '18',
+
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.4,
+
+                pointRadius: 3,
+                pointHoverRadius: 6,
+
+                pointBackgroundColor: color
+            }]
+        },
+
+        options: {
+
+            responsive: true,
+            maintainAspectRatio: false,
+
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+
+            plugins: {
+                legend: {
+                    display: false
+                },
+
+                tooltip: {
+                    backgroundColor: '#172554',
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            return label + ': ' +
+                                context.parsed.y + ' ' + unit;
+                        }
+                    }
+                }
+            },
+
+            scales: {
+
+                x: {
+                    grid: {
+                        display: false
+                    },
+
+                    ticks: {
+                        maxTicksLimit: 8,
+                        color: '#94a3b8'
+                    }
+                },
+
+                y: {
+                    beginAtZero: false,
+
+                    ticks: {
+                        color: '#94a3b8',
+                        callback: function(value) {
+                            return value + ' ' + unit;
+                        }
+                    },
+
+                    grid: {
+                        color: '#f1f5f9'
                     }
                 }
             }
         }
-    </script>
-</head>
+    });
+}
 
-<body class="bg-slate-100 min-h-screen">
 
-    <!-- Header -->
-    <header class="bg-darkblue text-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
+// ======================================================
+// 3. INITIALISATION DES DEUX GRAPHIQUES
+// ======================================================
 
-            <div>
-                <h1 class="text-2xl font-bold">
-                    IoT Monitor
-                </h1>
-                <p class="text-blue-200 text-sm mt-1">
-                    Surveillance de température et humidité
-                </p>
-            </div>
+temperatureChart = createChart(
+    'temperatureChart',
+    'Température',
+    '#2563eb',
+    '°C'
+);
 
-            <div class="hidden sm:flex items-center gap-2">
-                <span class="w-3 h-3 bg-green-400 rounded-full"></span>
-                <span class="text-sm">Dashboard actif</span>
-            </div>
+humidityChart = createChart(
+    'humidityChart',
+    'Humidité',
+    '#0891b2',
+    '%'
+);
 
-        </div>
-    </header>
 
-    <main class="max-w-7xl mx-auto px-6 py-10">
+// ======================================================
+// 4. OUVRIR / FERMER CHAQUE GRAPHIQUE INDÉPENDAMMENT
+// ======================================================
 
-        <!-- Welcome -->
-        <div class="mb-8">
-            <h2 class="text-3xl font-bold text-slate-800">
-                Vue d'ensemble
-            </h2>
-            <p class="text-slate-500 mt-2">
-                Consultez les dernières données collectées par votre ESP8266.
-            </p>
-        </div>
+function toggleChart(type) {
 
-        <!-- Statistics -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    const panel = document.getElementById(
+        type === 'temperature'
+            ? 'temperaturePanel'
+            : 'humidityPanel'
+    );
 
-            <!-- Temperature -->
-            <div class="bg-white rounded-2xl shadow-sm p-7 border border-slate-200">
+    panel.classList.toggle('active');
 
-                <div class="flex justify-between items-center">
-                    <div>
-                        <p class="text-slate-500 font-medium">
-                            Température
-                        </p>
+    // Redimensionner uniquement le graphique concerné
+    setTimeout(() => {
 
-                        <h3 class="text-4xl font-bold text-blue-600 mt-4">
-                            {% if temperature is not None %}
-                                {{ temperature|floatformat:1 }} °C
-                            {% else %}
-                                -- °C
-                            {% endif %}
-                        </h3>
-                    </div>
+        if (type === 'temperature') {
+            temperatureChart.resize();
+        } else {
+            humidityChart.resize();
+        }
 
-                    <div class="bg-blue-100 p-4 rounded-xl text-3xl">
-                        🌡️
-                    </div>
-                </div>
+    }, 50);
+}
 
-                <p class="text-sm text-slate-400 mt-5">
-                    Dernière température enregistrée
-                </p>
-            </div>
 
-            <!-- Humidity -->
-            <div class="bg-white rounded-2xl shadow-sm p-7 border border-slate-200">
+// ======================================================
+// 5. CALCUL DE L'AGE DE LA DERNIERE MESURE
+// ======================================================
 
-                <div class="flex justify-between items-center">
-                    <div>
-                        <p class="text-slate-500 font-medium">
-                            Humidité
-                        </p>
+function calculateAge(dateValue) {
 
-                        <h3 class="text-4xl font-bold text-emerald-600 mt-4">
-                            {% if humidity is not None %}
-                                {{ humidity|floatformat:1 }} %
-                            {% else %}
-                                -- %
-                            {% endif %}
-                        </h3>
-                    </div>
+    if (!dateValue) return 'Date inconnue';
 
-                    <div class="bg-emerald-100 p-4 rounded-xl text-3xl">
-                        💧
-                    </div>
-                </div>
+    const date = new Date(dateValue);
 
-                <p class="text-sm text-slate-400 mt-5">
-                    Dernière humidité enregistrée
-                </p>
-            </div>
+    if (isNaN(date.getTime())) return 'Date invalide';
 
-        </div>
+    const now = new Date();
 
-        <!-- History -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 mt-8 overflow-hidden">
+    const seconds = Math.max(
+        0,
+        Math.floor((now - date) / 1000)
+    );
 
-            <div class="p-6 border-b border-slate-200">
-                <h3 class="text-xl font-bold text-slate-800">
-                    Historique des mesures
-                </h3>
+    if (seconds < 60) {
+        return `Il y a ${seconds} seconde(s)`;
+    }
 
-                <p class="text-sm text-slate-500 mt-1">
-                    Les 10 dernières mesures enregistrées
-                </p>
-            </div>
+    const minutes = Math.floor(seconds / 60);
 
-            <div class="overflow-x-auto">
+    if (minutes < 60) {
+        return `Il y a ${minutes} minute(s)`;
+    }
 
-                <table class="w-full text-left">
+    const hours = Math.floor(minutes / 60);
 
-                    <thead class="bg-slate-50 text-slate-600 text-sm">
-                        <tr>
-                            <th class="px-6 py-4">Date</th>
-                            <th class="px-6 py-4">Température</th>
-                            <th class="px-6 py-4">Humidité</th>
-                            <th class="px-6 py-4">État</th>
-                        </tr>
-                    </thead>
+    if (hours < 24) {
+        return `Il y a ${hours} heure(s)`;
+    }
 
-                    <tbody class="divide-y divide-slate-100">
+    const days = Math.floor(hours / 24);
 
-                        {% for mesure in mesures %}
+    return `Il y a ${days} jour(s)`;
+}
 
-                        <tr class="hover:bg-slate-50 transition">
 
-                            <td class="px-6 py-4 text-slate-600">
-                                {{ mesure.date|date:"d/m/Y H:i:s" }}
-                            </td>
+// ======================================================
+// 6. ACTUALISER L'AGE CHAQUE SECONDE
+// ======================================================
 
-                            <td class="px-6 py-4 font-semibold text-blue-600">
-                                {{ mesure.temperature|floatformat:1 }} °C
-                            </td>
+function updateAges() {
 
-                            <td class="px-6 py-4 font-semibold text-emerald-600">
-                                {{ mesure.humidity|floatformat:1 }} %
-                            </td>
+    if (measurements.length === 0) return;
 
-                            <td class="px-6 py-4">
-                                <span class="px-3 py-1 rounded-full text-xs bg-green-100 text-green-700">
-                                    Enregistrée
-                                </span>
-                            </td>
+    const latest = measurements[measurements.length - 1];
 
-                        </tr>
+    document.getElementById('temperatureAge').textContent =
+        calculateAge(latest.date);
 
-                        {% empty %}
+    document.getElementById('humidityAge').textContent =
+        calculateAge(latest.date);
 
-                        <tr>
-                            <td colspan="4"
-                                class="text-center py-10 text-slate-400">
-                                Aucune mesure disponible pour le moment.
-                            </td>
-                        </tr>
+}
 
-                        {% endfor %}
 
-                    </tbody>
+// ======================================================
+// 7. METTRE A JOUR LE STATUT DE CONNEXION
+// ======================================================
 
-                </table>
+function updateConnectionStatus(success) {
 
-            </div>
-        </div>
+    const dot = document.getElementById('statusDot');
+    const status = document.getElementById('connectionStatus');
 
-        <!-- Footer -->
-        <footer class="text-center text-slate-400 text-sm mt-10">
-            IoT Monitor · Django & Tailwind CSS
-        </footer>
+    if (success) {
 
-    </main>
+        dot.className = 'status-dot';
+        status.textContent = 'Connecté';
+
+    } else {
+
+        dot.className = 'status-dot status-offline';
+        status.textContent = 'Déconnecté';
+
+    }
+}
+
+
+// ======================================================
+// 8. METTRE A JOUR LA CARTE TEMPERATURE
+// ======================================================
+
+function updateTemperatureCard(data) {
+
+    document.getElementById('temperatureValue').textContent =
+        Number(data.temperature).toFixed(1) + ' °C';
+
+}
+
+
+// ======================================================
+// 9. METTRE A JOUR LA CARTE HUMIDITE
+// ======================================================
+
+function updateHumidityCard(data) {
+
+    document.getElementById('humidityValue').textContent =
+        Number(data.humidity).toFixed(1) + ' %';
+
+}
+
+
+// ======================================================
+// 10. METTRE A JOUR LE GRAPHIQUE TEMPERATURE
+// ======================================================
+
+function updateTemperatureChart() {
+
+    const labels = measurements.map(item => {
+
+        const date = new Date(item.date);
+
+        return date.toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+    });
+
+    const values = measurements.map(item =>
+        Number(item.temperature)
+    );
+
+    temperatureChart.data.labels = labels;
+
+    temperatureChart.data.datasets[0].data = values;
+
+    temperatureChart.update('none');
+}
+
+
+// ======================================================
+// 11. METTRE A JOUR LE GRAPHIQUE HUMIDITE
+// ======================================================
+
+function updateHumidityChart() {
+
+    const labels = measurements.map(item => {
+
+        const date = new Date(item.date);
+
+        return date.toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+    });
+
+    const values = measurements.map(item =>
+        Number(item.humidity)
+    );
+
+    humidityChart.data.labels = labels;
+
+    humidityChart.data.datasets[0].data = values;
+
+    humidityChart.update('none');
+}
+
+
+// ======================================================
+// 12. RECUPERER LES DONNEES DE DJANGO
+// ======================================================
+
+async function fetchMeasurements() {
+
+    try {
+
+        const response = await fetch(API_URL, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            throw new Error('Erreur HTTP : ' + response.status);
+        }
+
+        const result = await response.json();
+
+        // Compatible avec une liste directe ou une réponse paginée DRF
+        let data = Array.isArray(result)
+            ? result
+            : (result.results || result.data || []);
+
+        // Normalisation des données
+        data = data.map(item => ({
+            temperature: Number(item.temperature ?? item.temp),
+            humidity: Number(item.humidity ?? item.hum),
+            date: item.date ?? item.dt ?? item.timestamp
+        }));
+
+        // Ignorer les mesures invalides
+        data = data.filter(item =>
+            Number.isFinite(item.temperature) &&
+            Number.isFinite(item.humidity) &&
+            item.date &&
+            !isNaN(new Date(item.date).getTime())
+        );
+
+        // Trier chronologiquement
+        data.sort((a, b) =>
+            new Date(a.date) - new Date(b.date)
+        );
+
+        measurements = data;
+
+        updateConnectionStatus(true);
+
+        if (measurements.length > 0) {
+
+            const latest = measurements[measurements.length - 1];
+
+            // Actualiser les cartes
+            updateTemperatureCard(latest);
+            updateHumidityCard(latest);
+
+            // Actualiser indépendamment les graphiques
+            updateTemperatureChart();
+            updateHumidityChart();
+
+            // Actualiser l'âge
+            updateAges();
+
+        } else {
+
+            document.getElementById('temperatureValue').textContent = '-- °C';
+            document.getElementById('humidityValue').textContent = '-- %';
+
+            document.getElementById('temperatureAge').textContent = 'Aucune donnée';
+            document.getElementById('humidityAge').textContent = 'Aucune donnée';
+
+        }
+
+        document.getElementById('lastUpdate').textContent =
+            new Date().toLocaleTimeString('fr-FR');
+
+    } catch (error) {
+
+        console.error('Erreur API :', error);
+
+        updateConnectionStatus(false);
+
+    }
+}
+
+
+// ======================================================
+// 13. LANCEMENT DU DASHBOARD
+// ======================================================
+
+// Première récupération
+fetchMeasurements();
+
+// Actualisation automatique des données toutes les 5 secondes
+setInterval(fetchMeasurements, REFRESH_INTERVAL);
+
+// Actualisation de l'âge chaque seconde
+setInterval(updateAges, 1000);
+
+</script>
 
 </body>
 </html>
